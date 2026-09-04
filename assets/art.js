@@ -47,13 +47,12 @@ dog(c='#f6c98d', s=120){ return `
 </svg>`},
 
 /* the signature animation — an ECG that beats into a heart */
-ecg(w=320){ return `
+ecg(w=320){ const d="M0 40 H70 l8 -26 l9 52 l9 -40 l8 14 H150 l6 -8 l7 16 l6 -8 H300"; return `
 <svg class="art ecg" viewBox="0 0 300 80" width="100%" style="max-width:${w}px" aria-hidden="true">
-  <path d="M0 40 H70 l8 -26 l9 52 l9 -40 l8 14 H150 l6 -8 l7 16 l6 -8 H300"
-        fill="none" stroke="url(#eg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
-        class="ecg-line"/>
+  <path d="${d}" fill="none" stroke="rgba(255,194,212,.22)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="${d}" fill="none" stroke="url(#eg)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" class="ecg-line"/>
   <defs><linearGradient id="eg" x1="0" x2="1">
-    <stop offset="0" stop-color="#8fe0c4"/><stop offset=".5" stop-color="#ff9ec7"/><stop offset="1" stop-color="#c6a8ff"/>
+    <stop offset="0" stop-color="#9fe3cb"/><stop offset=".5" stop-color="#ff8fb1"/><stop offset="1" stop-color="#ffd9a0"/>
   </linearGradient></defs>
 </svg>`},
 

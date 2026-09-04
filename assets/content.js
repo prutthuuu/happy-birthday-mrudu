@@ -8,7 +8,8 @@ const CONFIG = {
   birthday: { year: 2026, month: 9, day: 30 },
   timezoneOffsetMinutes: 330,        // IST
   age: null,                         // TODO: her age, e.g. 21
-  yourName: "me",                    // TODO: what she should see you signed as
+  yourName: "prutthu",               // what she calls you — signs the prescription
+  signature: "with love, your favourite prutthu ❤️",   // the line at the bottom of every screen
   song: null                         // TODO: drop an mp3 in assets/ and put "assets/song.mp3"
 };
 

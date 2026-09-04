@@ -66,6 +66,27 @@ const paintSnd = ()=>{ sndBtn.textContent = Sound.enabled?'🔊':'🔇'; sndBtn.
 paintSnd();
 sndBtn.onclick = ()=>{ const on=Sound.toggle(); paintSnd(); if(on){ Sound.pad(true); S('chime'); } else Sound.pad(false); };
 
+/* ---------- start over ---------- */
+const rstBtn = document.getElementById('rst');
+let armed = null;
+function restart(){
+  try{ localStorage.removeItem('mrudu_done'); localStorage.removeItem('mrudu_side'); }catch(e){}
+  clearInterval(clockT); stopCritters(); points = 0;
+  parts = [];                                   // clear any confetti mid-flight
+  document.body.style.transition = 'background 1.2s';
+  document.body.style.background = '';          // undo the finale fade
+  S('whoosh');
+  sceneGate();
+}
+rstBtn.onclick = ()=>{
+  if(armed){ clearTimeout(armed); armed=null; rstBtn.classList.remove('armed'); restart(); return; }
+  rstBtn.classList.add('armed'); S('tap');
+  toast('tap again to start from the beginning');
+  armed = setTimeout(()=>{ armed=null; rstBtn.classList.remove('armed'); }, 4000);
+};
+
+let clockT;
+
 /* ---------- roaming critters ---------- */
 const box=document.getElementById('critters'); let cTimer;
 function spawnCritter(){
@@ -95,7 +116,12 @@ function type(el,text,speed=40){
     },speed);
   });
 }
-const show = html => { stage.innerHTML=''; const s=$(`<section class="scene">${html}</section>`); stage.appendChild(s); return s; };
+const show = html => {
+  stage.innerHTML='';
+  const s=$(`<section class="scene">${html}</section>`);
+  if(CONFIG.signature) s.appendChild($(`<div class="sig">${CONFIG.signature}</div>`));
+  stage.appendChild(s); return s;
+};
 const nextBtn = (s,fn)=>{ const b=s.querySelector('#n'); b.style.transition='opacity .7s'; b.style.opacity='1'; b.onclick=()=>{S('whoosh');fn()}; };
 
 /* ============================================================ PHASE 1 */
@@ -186,7 +212,8 @@ function sceneBubbles(){
     rv.textContent=g.items[+b.dataset.i].text;
     if(n===g.items.length){ points+=g.points;
       setTimeout(()=>{ const w=$(`<div class="stack"><button class="btn primary">🎁 something appeared →</button></div>`);
-        s.appendChild(w); S('chime'); w.querySelector('button').onclick=()=>{S('whoosh');sceneBox()}; },1500); }
+        const sig=s.querySelector('.sig'); sig ? s.insertBefore(w,sig) : s.appendChild(w);
+        S('chime'); w.querySelector('button').onclick=()=>{S('whoosh');sceneBox()}; },1500); }
   });
 }
 
@@ -205,7 +232,6 @@ function sceneBox(){
 }
 
 /* ============================================================ PHASE 2 */
-let clockT;
 function sceneCountdown(justUnlocked){
   const d=daysLeft(), msg=COUNTDOWN_MESSAGES[d]||COUNTDOWN_FALLBACK;
   const q=QUOTES[(new Date().getDate()+d)%QUOTES.length];
@@ -340,13 +366,25 @@ function sceneFinale(){
     l.appendChild($(`<div>${Art.heart('#ff6f9c',70)}</div>`));
     Sound.birthdaySong(); S('success');
     burst(260,.35); setTimeout(()=>burst(190,.5),520); setTimeout(()=>burst(150,.65),1040);
-    nextBtn(s,()=>{ burst(140,.5); S('sparkle'); });
+    nextBtn(s,()=>{ burst(160,.5); S('sparkle');
+      if(!s.querySelector('#again')){
+        s.querySelector('.stack').appendChild($(`<button class="btn" id="again">↻ play it again</button>`));
+        s.querySelector('#again').onclick = restart;
+      }
+    });
   })();
 }
 
 /* ---------- router ---------- */
-const p=phase();
-if(p==='birthday'||p==='after') sceneBirthday();
-else if(load('done',false)) sceneCountdown(false);
-else sceneGate();
+/* preview overrides for testing:  ?stage=game | countdown | birthday | cake | wishes | finale */
+const forced = new URLSearchParams(location.search).get('stage');
+const STAGES = { game:()=>sceneGate(), countdown:()=>sceneCountdown(false), birthday:()=>sceneBirthday(),
+                 cake:()=>sceneCake(), wishes:()=>sceneWish(0), finale:()=>sceneFinale(), report:()=>sceneReport() };
+if(forced && STAGES[forced]) STAGES[forced]();
+else {
+  const p=phase();
+  if(p==='birthday'||p==='after') sceneBirthday();
+  else if(load('done',false)) sceneCountdown(false);
+  else sceneGate();
+}
 })();

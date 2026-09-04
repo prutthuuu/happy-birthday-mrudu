@@ -66,8 +66,13 @@ p{margin:0 0 1.05em}
 .cakeart{filter:drop-shadow(0 14px 30px rgba(0,0,0,.45))}
 
 /* the ECG — signature */
-.ecg-line{stroke-dasharray:600;stroke-dashoffset:600;animation:draw 2.6s linear infinite;filter:drop-shadow(0 0 6px var(--rose))}
-@keyframes draw{to{stroke-dashoffset:-600}}
+.ecg-line{stroke-dasharray:70 340;stroke-dashoffset:410;animation:draw 2.4s linear infinite;filter:drop-shadow(0 0 7px var(--rose))}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+.sig{margin-top:34px;font-family:Fraunces,Georgia,serif;font-style:italic;font-size:.9rem;
+     color:var(--dim);opacity:.8;letter-spacing:.02em}
+.sig::before{content:"";display:block;width:46px;height:1px;margin:0 auto 14px;
+     background:linear-gradient(90deg,transparent,var(--rose),transparent)}
 
 /* buttons */
 .btn{
@@ -141,10 +146,14 @@ p{margin:0 0 1.05em}
 #toast.show{transform:translateX(-50%) translateY(0)}
 
 /* sound toggle */
-#snd{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:75;
+#snd,#rst{position:fixed;top:calc(env(safe-area-inset-top) + 12px);z-index:75;
   width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;
-  background:rgba(43,15,29,.8);border:1px solid var(--line);backdrop-filter:blur(10px);font-size:1.05rem}
+  background:rgba(43,15,29,.8);border:1px solid var(--line);backdrop-filter:blur(10px);
+  color:var(--ink);font:inherit;font-size:1.05rem;transition:transform .15s,border-color .2s}
+#snd{right:14px} #rst{right:66px;font-size:1.25rem;line-height:1}
+#snd:active,#rst:active{transform:scale(.9)}
 #snd.off{opacity:.45}
+#rst.armed{border-color:var(--rose);color:var(--rose);box-shadow:0 0 0 3px rgba(255,143,177,.18)}
 
 .score{font-size:.75rem;letter-spacing:.16em;color:var(--gold);text-transform:uppercase;margin-top:20px}
 .nick{color:var(--rose);font-weight:700}
