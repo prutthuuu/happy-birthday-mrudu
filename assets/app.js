@@ -1,237 +1,219 @@
-/* engine — you shouldn't need to edit this. all words live in content.js */
+/* engine — all words live in content.js, all drawings in art.js, all sound in audio.js */
 (() => {
-const $ = (h) => { const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstElementChild; };
+const $ = h => { const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstElementChild; };
 const stage = document.getElementById('stage');
-const rand = (a) => a[Math.floor(Math.random()*a.length)];
+const rand = a => a[Math.floor(Math.random()*a.length)];
 const save = (k,v)=>{ try{localStorage.setItem('mrudu_'+k,JSON.stringify(v))}catch(e){} };
 const load = (k,d)=>{ try{const v=localStorage.getItem('mrudu_'+k); return v?JSON.parse(v):d}catch(e){return d} };
+const S = k => Sound.play(k);
 
-/* ---------- time (locked to IST, never the device) ---------- */
-function nowIST(){
-  const d = new Date();
-  return new Date(d.getTime() + (CONFIG.timezoneOffsetMinutes + d.getTimezoneOffset())*60000);
-}
-function bdayStartIST(){ return new Date(CONFIG.birthday.year, CONFIG.birthday.month-1, CONFIG.birthday.day, 0,0,0); }
-function bdayEndIST(){ const s=bdayStartIST(); return new Date(s.getTime()+86400000); }
-function msLeft(){ return bdayStartIST() - nowIST(); }
-function daysLeft(){ return Math.max(0, Math.ceil(msLeft()/86400000)); }
-function phase(){
-  const n = nowIST();
-  if (n >= bdayEndIST()) return 'after';
-  if (n >= bdayStartIST()) return 'birthday';
-  return 'pre';
-}
+/* ---------- time: locked to IST, never the device ---------- */
+const nowIST = () => { const d=new Date(); return new Date(d.getTime()+(CONFIG.timezoneOffsetMinutes+d.getTimezoneOffset())*60000); };
+const bStart = () => new Date(CONFIG.birthday.year, CONFIG.birthday.month-1, CONFIG.birthday.day,0,0,0);
+const bEnd   = () => new Date(bStart().getTime()+86400000);
+const msLeft = () => bStart()-nowIST();
+const daysLeft = () => Math.max(0, Math.ceil(msLeft()/86400000));
+const phase = () => { const n=nowIST(); return n>=bEnd() ? 'after' : n>=bStart() ? 'birthday' : 'pre'; };
 
-/* ---------- confetti / fx ---------- */
-const cv = document.getElementById('fx'), ctx = cv.getContext('2d');
-let parts = [], raf = null;
-function size(){ cv.width=innerWidth*devicePixelRatio; cv.height=innerHeight*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); }
-size(); addEventListener('resize', size);
-const COLORS = ['#ff9ec7','#c6a8ff','#ffd67e','#8fe0c4','#fff'];
-function burst(n=90, y=0.35){
-  for(let i=0;i<n;i++) parts.push({
-    x: innerWidth/2 + (Math.random()-.5)*innerWidth*.7, y: innerHeight*y,
-    vx:(Math.random()-.5)*9, vy:Math.random()*-11-3, g:.28,
-    s:Math.random()*7+4, r:Math.random()*6, vr:(Math.random()-.5)*.3,
-    c:rand(COLORS), life:1
-  });
+/* ---------- confetti ---------- */
+const cv=document.getElementById('fx'), ctx=cv.getContext('2d');
+let parts=[], raf=null;
+const size=()=>{cv.width=innerWidth*devicePixelRatio;cv.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)};
+size(); addEventListener('resize',size);
+const COLORS=['#ff8fb1','#ffc2d4','#ffd9a0','#9fe3cb','#fff4ee'];
+function burst(n=90,y=.35){
+  for(let i=0;i<n;i++) parts.push({x:innerWidth/2+(Math.random()-.5)*innerWidth*.75,y:innerHeight*y,
+    vx:(Math.random()-.5)*9,vy:Math.random()*-11-3,g:.28,s:Math.random()*7+4,
+    r:Math.random()*6,vr:(Math.random()-.5)*.3,c:rand(COLORS),life:1, heart:Math.random()<.3});
   if(!raf) tick();
 }
 function tick(){
   ctx.clearRect(0,0,innerWidth,innerHeight);
-  parts = parts.filter(p=>p.life>0);
+  parts=parts.filter(p=>p.life>0);
   parts.forEach(p=>{
-    p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.r+=p.vr; p.life-=.006;
-    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.globalAlpha=Math.max(0,p.life);
-    ctx.fillStyle=p.c; ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6); ctx.restore();
+    p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;p.life-=.0058;
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;
+    if(p.heart){ const s=p.s*.75; ctx.beginPath();
+      ctx.moveTo(0,s*.9); ctx.bezierCurveTo(-s*1.3,-s*.1,-s*.5,-s*1.1,0,-s*.45);
+      ctx.bezierCurveTo(s*.5,-s*1.1,s*1.3,-s*.1,0,s*.9); ctx.fill(); }
+    else ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);
+    ctx.restore();
   });
-  raf = parts.length ? requestAnimationFrame(tick) : (ctx.clearRect(0,0,innerWidth,innerHeight), null);
+  raf = parts.length ? requestAnimationFrame(tick) : (ctx.clearRect(0,0,innerWidth,innerHeight),null);
 }
+
+/* ---------- drifting hearts & petals ---------- */
+const drift = document.getElementById('drift');
+function spawnDrift(){
+  const isHeart = Math.random()<.45;
+  const el = $(`<div class="drifter">${isHeart?Art.heart(rand(['#ff8fb1','#ffc2d4','#ff6f9c']),Math.random()*14+10)
+                                            :Art.petal(rand(['#ffb3d1','#ffd9a0','#ffc2d4']),Math.random()*14+10)}</div>`);
+  el.style.left = Math.random()*100+'vw';
+  el.style.setProperty('--r',(Math.random()*720-360)+'deg');
+  el.style.animationDuration = (13+Math.random()*12)+'s';
+  drift.appendChild(el);
+  setTimeout(()=>el.remove(), 26000);
+}
+setInterval(spawnDrift, 1400); for(let i=0;i<6;i++) setTimeout(spawnDrift,i*500);
 
 /* ---------- toast ---------- */
-const toastEl = document.getElementById('toast'); let tTimer;
-function toast(msg){
-  toastEl.textContent = msg; toastEl.classList.add('show');
-  clearTimeout(tTimer); tTimer = setTimeout(()=>toastEl.classList.remove('show'), 4200);
-}
+const toastEl=document.getElementById('toast'); let tT;
+function toast(m){ toastEl.textContent=m; toastEl.classList.add('show'); clearTimeout(tT); tT=setTimeout(()=>toastEl.classList.remove('show'),4400); }
+
+/* ---------- sound toggle ---------- */
+const sndBtn = document.getElementById('snd');
+const paintSnd = ()=>{ sndBtn.textContent = Sound.enabled?'🔊':'🔇'; sndBtn.classList.toggle('off',!Sound.enabled); };
+paintSnd();
+sndBtn.onclick = ()=>{ const on=Sound.toggle(); paintSnd(); if(on){ Sound.pad(true); S('chime'); } else Sound.pad(false); };
 
 /* ---------- roaming critters ---------- */
-const critterBox = document.getElementById('critters');
+const box=document.getElementById('critters'); let cTimer;
 function spawnCritter(){
-  const c = rand(CRITTER_LINES);
-  const el = $(`<div class="critter">${c.e}</div>`);
-  const fromLeft = Math.random()>.5;
-  el.style.top = (18 + Math.random()*64) + 'vh';
-  el.style.left = fromLeft ? '-14vw' : '110vw';
-  critterBox.appendChild(el);
-  const dur = 11000 + Math.random()*7000;
-  el.animate([{transform:`translateX(0)`},{transform:`translateX(${fromLeft?125:-125}vw)`}],
-             {duration:dur, easing:'linear'}).onfinish = ()=>el.remove();
-  el.addEventListener('click', ()=>{ toast(c.t); burst(24,.5); el.remove(); });
+  const c=rand(CRITTER_LINES);
+  const draw = { cat:()=>Art.cat('#ffc2d4',64), dog:()=>Art.dog('#f6c98d',64),
+                 heart:()=>Art.heart('#ff8fb1',34), star:()=>Art.star(30), stetho:()=>Art.stetho(46) };
+  const el=$(`<div class="critter">${(draw[c.art]||draw.heart)()}</div>`);
+  const L=Math.random()>.5;
+  el.style.top=(16+Math.random()*66)+'vh'; el.style.left=L?'-20vw':'112vw';
+  if(!L) el.style.transform='scaleX(-1)';
+  box.appendChild(el);
+  el.animate([{translate:'0'},{translate:`${L?132:-132}vw`}],{duration:12000+Math.random()*8000,easing:'linear'}).onfinish=()=>el.remove();
+  el.onclick=()=>{ toast(c.t); S(c.art==='cat'?'meow':c.art==='dog'?'woof':'sparkle'); burst(26,.5); el.remove(); };
 }
-let critterTimer;
-function startCritters(){ clearInterval(critterTimer); critterTimer = setInterval(()=>{ if(Math.random()>.35) spawnCritter(); }, 6500); setTimeout(spawnCritter, 2200); }
-function stopCritters(){ clearInterval(critterTimer); critterBox.innerHTML=''; }
+function startCritters(){ clearInterval(cTimer); cTimer=setInterval(()=>{if(Math.random()>.35)spawnCritter()},7000); setTimeout(spawnCritter,2400); }
+function stopCritters(){ clearInterval(cTimer); box.innerHTML=''; }
 
 /* ---------- typewriter ---------- */
-function type(el, text, speed=42){
+function type(el,text,speed=40){
   return new Promise(res=>{
     el.innerHTML=''; let i=0;
-    const cur = $('<span class="cursor"></span>'); el.appendChild(cur);
-    const iv = setInterval(()=>{
-      if(i>=text.length){ clearInterval(iv); cur.remove(); res(); return; }
-      cur.insertAdjacentText('beforebegin', text[i++]);
-    }, speed);
+    const cur=$('<span class="cursor"></span>'); el.appendChild(cur);
+    const iv=setInterval(()=>{
+      if(i>=text.length){clearInterval(iv);cur.remove();res();return}
+      cur.insertAdjacentText('beforebegin',text[i++]);
+      if(i%3===0) S('tap');
+    },speed);
   });
 }
+const show = html => { stage.innerHTML=''; const s=$(`<section class="scene">${html}</section>`); stage.appendChild(s); return s; };
+const nextBtn = (s,fn)=>{ const b=s.querySelector('#n'); b.style.transition='opacity .7s'; b.style.opacity='1'; b.onclick=()=>{S('whoosh');fn()}; };
 
-function show(html){ stage.innerHTML=''; const s=$(`<section class="scene">${html}</section>`); stage.appendChild(s); return s; }
-
-/* ============================================================
-   PHASE 1 — THE GAME
-   ============================================================ */
-let points = 0;
-function addPoints(n){ points += n; }
+/* ============================================================ PHASE 1 */
+let points=0;
 
 function sceneGate(){
-  const s = show(`
-    <div class="kicker">🐱 access denied</div>
-    <h1 id="gl"></h1>
-    <p class="dim" id="gs"></p>
-    <div class="stack"><button class="btn primary" id="go" style="opacity:0">${GAME.gate.button}</button></div>`);
-  const l = s.querySelector('#gl');
+  const s=show(`
+    <div class="kicker">access denied</div>
+    ${Art.cat('#ffc2d4',150)}
+    <h1 id="gl"></h1><p class="dim" id="gs"></p>
+    <div class="stack"><button class="btn primary" id="n" style="opacity:0">${GAME.gate.button}</button></div>`);
   (async()=>{
-    await type(l, GAME.gate.lines[0], 70);
-    await new Promise(r=>setTimeout(r,450));
-    await type(l, GAME.gate.lines[1], 38);
-    s.querySelector('#gs').textContent = GAME.gate.lines[2];
-    const b = s.querySelector('#go'); b.style.transition='opacity .6s'; b.style.opacity='1';
+    Sound.boot(); Sound.pad(true);
+    const l=s.querySelector('#gl');
+    await type(l,GAME.gate.lines[0],75); S('meow');
+    await new Promise(r=>setTimeout(r,500));
+    await type(l,GAME.gate.lines[1],36);
+    s.querySelector('#gs').textContent=GAME.gate.lines[2];
+    nextBtn(s,sceneCat);
   })();
-  s.querySelector('#go').onclick = sceneCat;
 }
 
 function sceneCat(){
-  const g = GAME.catchCat;
-  const s = show(`
-    <div class="kicker">${g.title}</div>
-    <h2>${g.prompt}</h2>
-    <p class="dim">${g.sub}</p>
-    <div id="arena" style="position:relative;height:44vh;width:100%;margin-top:10px"></div>
-    <p class="dim" id="msg" style="min-height:1.5em"></p>`);
-  const arena = s.querySelector('#arena'), msg = s.querySelector('#msg');
-  const cat = $(`<div class="critter" style="position:absolute;font-size:2.6rem">🐱</div>`);
+  const g=GAME.catchCat;
+  const s=show(`
+    <div class="kicker">${g.title}</div><h2>${g.prompt}</h2><p class="dim">${g.sub}</p>
+    <div id="arena" style="position:relative;height:46vh;width:100%"></div>
+    <p class="dim" id="msg" style="min-height:1.6em"></p>`);
+  const arena=s.querySelector('#arena'), msg=s.querySelector('#msg');
+  const cat=$(`<div class="critter" style="position:absolute">${Art.cat('#ffc2d4',88)}</div>`);
   arena.appendChild(cat);
-  let misses = 0;
-  const move = ()=>{
-    // shrink the escape range as she misses — it always ends in a win
-    const ease = Math.min(misses*0.18, 0.7);
-    cat.style.left = (10 + Math.random()*(70*(1-ease))) + '%';
-    cat.style.top  = (10 + Math.random()*(70*(1-ease))) + '%';
-  };
+  let miss=0;
+  const move=()=>{ const e=Math.min(miss*.18,.7);
+    cat.style.left=(6+Math.random()*(68*(1-e)))+'%'; cat.style.top=(4+Math.random()*(62*(1-e)))+'%'; };
   move();
-  arena.addEventListener('pointerdown', e=>{
-    if(e.target===cat) return;
-    misses++; msg.textContent = g.misses[Math.min(misses-1, g.misses.length-1)]; move();
-  });
-  cat.addEventListener('pointerdown', e=>{
-    e.stopPropagation(); addPoints(g.points); burst(70,.45);
-    show(`<div class="cake">🐱</div><h2>${g.win}</h2>
-          <div class="score">+${g.points} mrudu points</div>
-          <div class="stack"><button class="btn primary" id="n">continue →</button></div>`)
-      .querySelector('#n').onclick = sceneSides;
+  arena.addEventListener('pointerdown',e=>{ if(cat.contains(e.target))return;
+    miss++; S('tap'); msg.textContent=g.misses[Math.min(miss-1,g.misses.length-1)]; move(); });
+  cat.addEventListener('pointerdown',e=>{
+    e.stopPropagation(); points+=g.points; S('meow'); burst(80,.45);
+    const w=show(`${Art.cat('#ffc2d4',150)}<h2>${g.win}</h2><div class="score">+${g.points} mrudu points</div>
+      <div class="stack"><button class="btn primary" id="n" style="opacity:1">continue →</button></div>`);
+    w.querySelector('#n').onclick=()=>{S('whoosh');sceneSides()};
   });
 }
 
 function sceneSides(){
-  const g = GAME.sides;
-  const s = show(`
-    <div class="kicker">${g.title}</div>
-    <h2>${g.prompt}</h2>
-    <div class="stack">${g.options.map((o,i)=>`<button class="btn" data-i="${i}">${o.label}</button>`).join('')}</div>`);
-  s.querySelectorAll('.btn').forEach(b=> b.onclick = ()=>{
-    const o = g.options[+b.dataset.i]; addPoints(g.points); burst(40,.5);
-    save('side', o.label);
-    show(`<h2 class="serif">${o.reply}</h2><div class="score">+${g.points} mrudu points</div>
-          <div class="stack"><button class="btn primary" id="n">okay →</button></div>`)
-      .querySelector('#n').onclick = ()=>sceneQuestion(0);
+  const g=GAME.sides;
+  const s=show(`<div class="kicker">${g.title}</div><h2>${g.prompt}</h2>
+    <div class="row2">${g.options.map((o,i)=>`<button class="btn art-btn" data-i="${i}">
+      ${o.art==='cat'?Art.cat('#ffc2d4',86):Art.dog('#f6c98d',86)}<span>${o.label}</span></button>`).join('')}</div>`);
+  s.querySelectorAll('.btn').forEach(b=>b.onclick=()=>{
+    const o=g.options[+b.dataset.i]; points+=g.points; S(o.art==='cat'?'meow':'woof'); burst(46,.5); save('side',o.label);
+    const w=show(`${o.art==='cat'?Art.cat('#ffc2d4',130):Art.dog('#f6c98d',130)}
+      <h2 class="serif">${o.reply}</h2><div class="score">+${g.points} mrudu points</div>
+      <div class="stack"><button class="btn primary" id="n" style="opacity:1">okay →</button></div>`);
+    w.querySelector('#n').onclick=()=>{S('whoosh');sceneQ(0)};
   });
 }
 
-function sceneQuestion(idx){
-  if(idx >= GAME.questions.length) return sceneBubbles();
-  const q = GAME.questions[idx];
-  const s = show(`
-    <div class="kicker">${q.title}</div>
-    <h2>${q.q}</h2>
-    <div class="stack">${q.options.map((o,i)=>`<button class="btn" data-i="${i}">${o.label}</button>`).join('')}</div>`);
-  s.querySelectorAll('.btn').forEach(b=> b.onclick = ()=>{
-    const o = q.options[+b.dataset.i]; addPoints(q.points); burst(34,.5);
-    const reply = q.reveal || o.reply;  // reveal = same answer whatever she picks
-    show(`<div class="reveal serif big">${reply}</div>
-          <div class="score">+${q.points} mrudu points</div>
-          <div class="stack"><button class="btn primary" id="n">next →</button></div>`)
-      .querySelector('#n').onclick = ()=>sceneQuestion(idx+1);
+function sceneQ(i){
+  if(i>=GAME.questions.length) return sceneBubbles();
+  const q=GAME.questions[i];
+  const s=show(`<div class="kicker">${q.title}</div><h2>${q.q}</h2>
+    <div class="stack">${q.options.map((o,k)=>`<button class="btn" data-i="${k}">${o.label}</button>`).join('')}</div>`);
+  s.querySelectorAll('.btn').forEach(b=>b.onclick=()=>{
+    const o=q.options[+b.dataset.i]; points+=q.points; S('pop'); burst(36,.5);
+    const w=show(`<div class="reveal serif big">${q.reveal||o.reply}</div>
+      <div class="score">+${q.points} mrudu points</div>
+      <div class="stack"><button class="btn primary" id="n" style="opacity:1">next →</button></div>`);
+    w.querySelector('#n').onclick=()=>{S('whoosh');sceneQ(i+1)};
   });
 }
 
 function sceneBubbles(){
-  const g = GAME.bubbles;
-  const s = show(`
-    <div class="kicker">${g.title}</div>
-    <h2>${g.prompt}</h2>
-    <p class="dim">${g.sub}</p>
+  const g=GAME.bubbles;
+  const artOf = a => a==='cat'?Art.cat('#ffc2d4',54):a==='dog'?Art.dog('#f6c98d',54)
+                : a==='stetho'?Art.stetho(46):a==='star'?Art.star(38):Art.heart('#ff8fb1',40);
+  const s=show(`<div class="kicker">${g.title}</div><h2>${g.prompt}</h2><p class="dim">${g.sub}</p>
     <div class="reveal serif" id="rv">tap one 👇</div>
-    <div class="bubbles">${g.items.map((it,i)=>`<button class="bub" data-i="${i}">${it.emoji}</button>`).join('')}</div>
+    <div class="bubbles">${g.items.map((it,i)=>`<button class="bub" data-i="${i}">${artOf(it.art)}</button>`).join('')}</div>
     <p class="dim" id="left"></p>`);
-  const rv = s.querySelector('#rv'), leftEl = s.querySelector('#left');
-  let opened = 0;
-  const refresh = ()=> leftEl.textContent = opened < g.items.length ? `${g.items.length-opened} left` : '';
+  const rv=s.querySelector('#rv'), lf=s.querySelector('#left'); let n=0;
+  const refresh=()=>lf.textContent = n<g.items.length ? `${g.items.length-n} left` : '';
   refresh();
-  s.querySelectorAll('.bub').forEach(b=> b.onclick = ()=>{
-    if(b.classList.contains('open')) return;
-    b.classList.add('open'); opened++; refresh();
-    rv.textContent = g.items[+b.dataset.i].text;
-    burst(20,.55);
-    if(opened === g.items.length){
-      addPoints(g.points);
-      setTimeout(()=>{
-        const n = $(`<div class="stack"><button class="btn primary">🎁 something appeared →</button></div>`);
-        s.appendChild(n); n.querySelector('button').onclick = sceneBox;
-      }, 1400);
-    }
+  s.querySelectorAll('.bub').forEach(b=>b.onclick=()=>{
+    if(b.classList.contains('open'))return;
+    b.classList.add('open'); n++; refresh(); S('sparkle'); burst(22,.55);
+    rv.textContent=g.items[+b.dataset.i].text;
+    if(n===g.items.length){ points+=g.points;
+      setTimeout(()=>{ const w=$(`<div class="stack"><button class="btn primary">🎁 something appeared →</button></div>`);
+        s.appendChild(w); S('chime'); w.querySelector('button').onclick=()=>{S('whoosh');sceneBox()}; },1500); }
   });
 }
 
 function sceneBox(){
-  const g = GAME.box;
-  const s = show(`
-    <div class="kicker">final level</div>
-    <div class="cake">🎁</div>
-    <h2>${g.score}</h2>
-    <p class="dim">${g.unlocked}</p>
+  const g=GAME.box;
+  const s=show(`<div class="kicker">final level</div>${Art.heart('#ff6f9c',110)}
+    <h2>${g.score}</h2><p class="dim">🔓 ${g.unlocked}</p>
     <div class="stack"><button class="btn primary" id="o">${g.button}</button></div>`);
-  s.querySelector('#o').onclick = ()=>{
-    burst(190,.4); setTimeout(()=>burst(120,.5),350); setTimeout(()=>burst(90,.6),700);
-    const t = show(`<div class="cake">🎉</div><p class="big serif" id="a"></p>
-                    <div class="stack"><button class="btn primary" id="n" style="opacity:0">${g.next}</button></div>`);
-    (async()=>{
-      await type(t.querySelector('#a'), g.after, 30);
-      const b=t.querySelector('#n'); b.style.transition='opacity .8s'; b.style.opacity='1';
-      b.onclick = ()=>{ save('done', true); sceneCountdown(true); };
-    })();
+  s.querySelector('#o').onclick=()=>{
+    S('success'); burst(200,.4); setTimeout(()=>burst(130,.5),380); setTimeout(()=>burst(100,.6),760);
+    const t=show(`${Art.ecg(340)}<p class="big serif" id="a"></p>
+      <div class="stack"><button class="btn primary" id="n" style="opacity:0">${g.next}</button></div>`);
+    (async()=>{ await type(t.querySelector('#a'),g.after,28);
+      nextBtn(t,()=>{ save('done',true); sceneCountdown(true); }); })();
   };
 }
 
-/* ============================================================
-   PHASE 2 — COUNTDOWN
-   ============================================================ */
-let clockTimer;
+/* ============================================================ PHASE 2 */
+let clockT;
 function sceneCountdown(justUnlocked){
-  const d = daysLeft();
-  const msg = COUNTDOWN_MESSAGES[d] || COUNTDOWN_FALLBACK;
-  const s = show(`
-    ${justUnlocked ? '<div class="kicker">🔓 you unlocked the next part</div>' : `<div class="kicker">for <span class="nick">${CONFIG.name}</span></div>`}
-    <h1 style="margin-bottom:.15em">${d === 1 ? 'tomorrow.' : d + (d===1?' day':' days')}</h1>
+  const d=daysLeft(), msg=COUNTDOWN_MESSAGES[d]||COUNTDOWN_FALLBACK;
+  const q=QUOTES[(new Date().getDate()+d)%QUOTES.length];
+  const s=show(`
+    ${justUnlocked?'<div class="kicker">🔓 you unlocked the next part</div>'
+                  :`<div class="kicker">for <span class="nick">${CONFIG.name}</span></div>`}
+    <h1 style="margin-bottom:.1em">${d===1?'tomorrow.':d+(d===1?' day':' days')}</h1>
+    ${Art.ecg(300)}
     <div class="clock">
       <div class="unit"><b id="dd">--</b><span>days</span></div>
       <div class="unit"><b id="hh">--</b><span>hrs</span></div>
@@ -239,152 +221,132 @@ function sceneCountdown(justUnlocked){
       <div class="unit"><b id="ss">--</b><span>sec</span></div>
     </div>
     <div class="daily serif">${msg}</div>
-    <div class="stack"><button class="btn" id="scan">${BEAUTY_REPORT.button}</button></div>
-    <p class="dim" style="margin-top:24px;font-size:.82rem">come back tomorrow. it changes. 🐱</p>`);
-
-  const pad = n => String(n).padStart(2,'0');
-  const upd = ()=>{
-    let ms = msLeft(); if(ms<0){ location.reload(); return; }
+    <div class="quote"><q>${q.t}</q><cite>— ${q.a}${q.w?`<i>${q.w}</i>`:''}</cite></div>
+    <div class="stack"><button class="btn" id="scan">🩺 ${MEDICAL_REPORT.button}</button></div>
+    <p class="dim" style="margin-top:22px;font-size:.82rem">come back tomorrow. it changes.</p>`);
+  const pad=n=>String(n).padStart(2,'0');
+  const upd=()=>{ let ms=msLeft(); if(ms<0){location.reload();return}
     const dv=Math.floor(ms/86400000); ms-=dv*86400000;
     const h=Math.floor(ms/3600000); ms-=h*3600000;
-    const m=Math.floor(ms/60000); const sec=Math.floor((ms-m*60000)/1000);
+    const m=Math.floor(ms/60000), sec=Math.floor((ms-m*60000)/1000);
     s.querySelector('#dd').textContent=pad(dv); s.querySelector('#hh').textContent=pad(h);
     s.querySelector('#mm').textContent=pad(m);  s.querySelector('#ss').textContent=pad(sec);
+    if(sec%10===0) S('beep');
   };
-  upd(); clearInterval(clockTimer); clockTimer = setInterval(upd, 1000);
-  if(justUnlocked) burst(120,.3);
-  s.querySelector('#scan').onclick = sceneReport;
+  upd(); clearInterval(clockT); clockT=setInterval(upd,1000);
+  if(justUnlocked){ burst(140,.3); S('success'); }
+  Sound.pad(true);
+  s.querySelector('#scan').onclick=()=>{S('whoosh');sceneReport()};
   startCritters();
 }
 
 function sceneReport(){
-  clearInterval(clockTimer);
-  const R = BEAUTY_REPORT;
-  const s = show(`
-    <div class="kicker">${R.scanning}</div>
+  clearInterval(clockT);
+  const R=MEDICAL_REPORT;
+  const s=show(`<div class="kicker">${R.scanning}</div>${Art.stetho(70)}
     <div class="meter"><i id="m"></i></div>
-    <div class="report" id="rows" style="opacity:0;transition:opacity .5s"></div>
-    <p class="reveal serif" id="err" style="opacity:0;transition:opacity .6s">${R.error}</p>
+    <div class="report" id="rep" style="opacity:0;transition:opacity .6s">
+      <div class="hd">${R.header.map(h=>`${h[0]}: ${h[1]}`).join('<br>')}</div>
+      ${R.rows.map(r=>`<div class="row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')}
+      <div class="dx">${R.diagnosis}<br>${R.prognosis}</div>
+    </div>
+    <div class="rx" id="rx" style="opacity:0;transition:opacity .6s">
+      <h3>${R.rx.title}</h3>${R.rx.lines.join('<br>')}
+      <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:8px;color:var(--dim)">— ${CONFIG.yourName}</div>
+    </div>
     <div class="stack"><button class="btn" id="back">← back to the countdown</button></div>`);
-  const bar = s.querySelector('#m'); let p=0;
-  const iv = setInterval(()=>{
-    p += Math.random()*7; bar.style.width = Math.min(p,100)+'%';
-    if(p>=100){
-      clearInterval(iv);
-      s.querySelector('#rows').innerHTML = R.rows.map(r=>`<div class="row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
-      s.querySelector('#rows').style.opacity='1';
-      setTimeout(()=>{ s.querySelector('#err').style.opacity='1'; burst(50,.5); }, 900);
-    }
-  }, 120);
-  s.querySelector('#back').onclick = ()=>sceneCountdown(false);
+  const bar=s.querySelector('#m'); let p=0;
+  const iv=setInterval(()=>{
+    p+=Math.random()*7; bar.style.width=Math.min(p,100)+'%'; S('beep');
+    if(p>=100){ clearInterval(iv); s.querySelector('#rep').style.opacity='1';
+      setTimeout(()=>{ s.querySelector('#rx').style.opacity='1'; S('chime'); burst(50,.5); },1000); }
+  },130);
+  s.querySelector('#back').onclick=()=>{S('whoosh');sceneCountdown(false)};
 }
 
-/* ============================================================
-   PHASE 3 — BIRTHDAY
-   ============================================================ */
+/* ============================================================ PHASE 3 */
 function sceneBirthday(){
   stopCritters();
-  const B = BIRTHDAY_MODE;
-  const s = show(`
-    <div class="kicker">${B.date}</div>
-    <h1>${B.headline}</h1>
-    <p class="big serif">${B.greeting}</p>
+  const B=BIRTHDAY_MODE;
+  const s=show(`<div class="kicker">${B.date}</div><h1>${B.headline}</h1>
+    ${Art.ecg(320)}<p class="big serif">${B.greeting}</p>
     <div class="stack"><button class="btn primary" id="go">🎂 there's a cake →</button></div>`);
-  burst(200,.35); setTimeout(()=>burst(140,.5),420); setTimeout(()=>burst(110,.6),840);
-  s.querySelector('#go').onclick = sceneCake;
+  Sound.boot(); Sound.pad(true);
+  burst(220,.35); setTimeout(()=>burst(150,.5),420); setTimeout(()=>burst(120,.6),840);
+  setTimeout(()=>Sound.birthdaySong(), 600);
+  s.querySelector('#go').onclick=()=>{S('whoosh');sceneCake()};
   startCritters();
 }
 
 function sceneCake(){
-  const C = BIRTHDAY_MODE.cake;
-  const s = show(`
-    <div class="kicker">${C.prompt}</div>
-    <div class="flames" id="f">${'<span class="flame">🔥</span>'.repeat(5)}</div>
-    <div class="cake">🎂</div>
-    <p class="dim">${C.sub}</p>
-    <div class="meter"><i id="lvl"></i></div>
+  const C=BIRTHDAY_MODE.cake;
+  const s=show(`<div class="kicker">${C.prompt}</div>${Art.cake(230)}
+    <p class="dim">${C.sub}</p><div class="meter"><i id="lvl"></i></div>
     <div class="stack"><button class="btn" id="mic">🎤 use my mic</button></div>`);
-  const flames = [...s.querySelectorAll('.flame')];
-  let out = 0;
-  const blow = ()=>{
-    if(out >= flames.length) return;
-    flames[out++].classList.add('out');
-    if(out === flames.length){
-      burst(170,.4);
-      setTimeout(()=>{
-        show(`<div class="cake">✨</div><h2 class="serif">${C.done}</h2>
-              <div class="stack"><button class="btn primary" id="n">done ❤️</button></div>`)
-          .querySelector('#n').onclick = ()=>sceneWishes(0);
-      }, 1100);
+  const candles=[...s.querySelectorAll('.candle')]; let out=0;
+  const blow=()=>{
+    if(out>=candles.length) return;
+    candles[out++].classList.add('out'); S('pop');
+    if(out===candles.length){
+      burst(180,.4); S('success');
+      setTimeout(()=>{ const w=show(`${Art.heart('#ff6f9c',110)}<h2 class="serif">${C.done}</h2>
+        <div class="stack"><button class="btn primary" id="n" style="opacity:1">done ❤️</button></div>`);
+        w.querySelector('#n').onclick=()=>{S('whoosh');sceneWish(0)}; },1200);
     }
   };
-  flames.forEach(f=> f.addEventListener('pointerdown', blow));
-  s.querySelector('.cake').addEventListener('pointerdown', blow);
-  // mic is a bonus — taps always work, so it can never trap her
-  s.querySelector('#mic').onclick = async (e)=>{
+  candles.forEach(c=>c.addEventListener('pointerdown',blow));
+  s.querySelector('.cakeart').addEventListener('pointerdown',blow);
+  s.querySelector('#mic').onclick=async e=>{
     try{
-      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-      e.target.textContent = 'blow! 🎤'; e.target.disabled = true;
-      const ac = new (window.AudioContext||window.webkitAudioContext)();
-      const an = ac.createAnalyser(); an.fftSize = 512;
-      ac.createMediaStreamSource(stream).connect(an);
-      const buf = new Uint8Array(an.frequencyBinCount);
-      const bar = s.querySelector('#lvl');
-      const loop = ()=>{
-        an.getByteFrequencyData(buf);
-        const v = buf.reduce((a,b)=>a+b,0)/buf.length;
-        bar.style.width = Math.min(v*2.2,100)+'%';
-        if(v > 42) blow();
-        if(out < flames.length) requestAnimationFrame(loop);
-        else { stream.getTracks().forEach(t=>t.stop()); ac.close(); }
-      };
+      const st=await navigator.mediaDevices.getUserMedia({audio:true});
+      e.target.textContent='blow! 🎤'; e.target.disabled=true;
+      const ac=new (window.AudioContext||window.webkitAudioContext)();
+      const an=ac.createAnalyser(); an.fftSize=512; ac.createMediaStreamSource(st).connect(an);
+      const buf=new Uint8Array(an.frequencyBinCount), bar=s.querySelector('#lvl');
+      const loop=()=>{ an.getByteFrequencyData(buf);
+        const v=buf.reduce((a,b)=>a+b,0)/buf.length;
+        bar.style.width=Math.min(v*2.2,100)+'%';
+        if(v>42) blow();
+        if(out<candles.length) requestAnimationFrame(loop);
+        else { st.getTracks().forEach(t=>t.stop()); ac.close(); } };
       loop();
     }catch(err){ toast("mic said no. just tap the candles 🕯️"); }
   };
 }
 
-function sceneWishes(i){
-  const B = BIRTHDAY_MODE;
-  if(i >= B.wishes.length) return sceneFinale();
-  const s = show(`
-    <div class="kicker">wish ${String(i+1).padStart(2,'0')} / ${String(B.wishes.length).padStart(2,'0')}</div>
+function sceneWish(i){
+  const B=BIRTHDAY_MODE;
+  if(i>=B.wishes.length) return sceneFinale();
+  const q=QUOTES[i%QUOTES.length];
+  const s=show(`<div class="kicker">wish ${String(i+1).padStart(2,'0')} / ${String(B.wishes.length).padStart(2,'0')}</div>
     <p class="typed serif" id="w"></p>
+    ${i%3===2?`<div class="quote"><q>${q.t}</q><cite>— ${q.a}${q.w?`<i>${q.w}</i>`:''}</cite></div>`:''}
     <div class="stack"><button class="btn primary" id="n" style="opacity:0">${i===B.wishes.length-1?'…one more thing →':B.wishButton}</button></div>`);
-  (async()=>{
-    await type(s.querySelector('#w'), B.wishes[i], 26);
-    burst(22,.55);
-    const b = s.querySelector('#n'); b.style.transition='opacity .6s'; b.style.opacity='1';
-    b.onclick = ()=>sceneWishes(i+1);
-  })();
+  (async()=>{ await type(s.querySelector('#w'),B.wishes[i],25); S('sparkle'); burst(24,.55);
+    nextBtn(s,()=>sceneWish(i+1)); })();
 }
 
 function sceneFinale(){
   stopCritters();
-  const B = BIRTHDAY_MODE;
-  document.body.style.transition='background 2.5s';
-  document.body.style.background='radial-gradient(120% 90% at 50% 20%,#191033 0%,#07040f 70%)';
-  const s = show(`<p class="typed serif" id="l" style="min-height:5em"></p>
-                  <div class="stack"><button class="btn primary" id="n" style="opacity:0">❤️</button></div>`);
-  const l = s.querySelector('#l');
+  const B=BIRTHDAY_MODE;
+  document.body.style.transition='background 3s';
+  document.body.style.background='radial-gradient(120% 90% at 50% 20%,#3a0f22 0%,#0d0308 72%)';
+  const s=show(`<p class="typed serif" id="l" style="min-height:5.5em"></p>
+    <div class="stack"><button class="btn primary" id="n" style="opacity:0">❤️</button></div>`);
+  const l=s.querySelector('#l');
   (async()=>{
-    for(const line of B.finale){
-      await type(l, line, 55);
-      await new Promise(r=>setTimeout(r, 1500));
-    }
-    l.innerHTML = '';
-    const h = $(`<h1 class="serif">${B.finalLine}</h1>`); l.appendChild(h);
-    burst(240,.35); setTimeout(()=>burst(180,.5),500); setTimeout(()=>burst(140,.65),1000);
-    const b=s.querySelector('#n'); b.style.transition='opacity 1s'; b.style.opacity='1';
-    b.onclick = ()=>{ burst(120,.5); };
+    for(const line of B.finale){ await type(l,line,55); await new Promise(r=>setTimeout(r,1600)); }
+    l.innerHTML=''; l.appendChild($(`<h1 class="serif">${B.finalLine}</h1>`));
+    l.appendChild($(`<div>${Art.heart('#ff6f9c',70)}</div>`));
+    Sound.birthdaySong(); S('success');
+    burst(260,.35); setTimeout(()=>burst(190,.5),520); setTimeout(()=>burst(150,.65),1040);
+    nextBtn(s,()=>{ burst(140,.5); S('sparkle'); });
   })();
 }
 
 /* ---------- router ---------- */
-function boot(){
-  const p = phase();
-  if(p === 'birthday' || p === 'after'){ sceneBirthday(); return; }
-  if(load('done', false)) sceneCountdown(false);
-  else sceneGate();
-}
-boot();
+const p=phase();
+if(p==='birthday'||p==='after') sceneBirthday();
+else if(load('done',false)) sceneCountdown(false);
+else sceneGate();
 })();
