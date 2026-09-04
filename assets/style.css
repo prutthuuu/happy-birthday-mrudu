@@ -41,6 +41,7 @@ body::after{ /* warm vignette */
 .kicker{font-size:.7rem;letter-spacing:.24em;text-transform:uppercase;color:var(--rose);opacity:.9;margin-bottom:14px}
 h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(2rem,9vw,3.3rem);line-height:1.12;margin:0 0 .38em;
    background:linear-gradient(135deg,#fff4ee,var(--blush) 55%,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.emo{-webkit-text-fill-color:initial;color:initial;background:none;-webkit-background-clip:initial;background-clip:initial}
 h2{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(1.5rem,6.4vw,2.2rem);line-height:1.22;margin:0 0 .5em}
 p{margin:0 0 1.05em}
 .dim{color:var(--dim);font-size:.95rem}
@@ -69,10 +70,14 @@ p{margin:0 0 1.05em}
 .ecg-line{stroke-dasharray:70 340;stroke-dashoffset:410;animation:draw 2.4s linear infinite;filter:drop-shadow(0 0 7px var(--rose))}
 @keyframes draw{to{stroke-dashoffset:0}}
 
-.sig{margin-top:34px;font-family:Fraunces,Georgia,serif;font-style:italic;font-size:.9rem;
-     color:var(--dim);opacity:.8;letter-spacing:.02em}
-.sig::before{content:"";display:block;width:46px;height:1px;margin:0 auto 14px;
+#sig{position:fixed;left:0;right:0;bottom:0;z-index:65;pointer-events:none;text-align:center;
+     padding:14px 20px calc(env(safe-area-inset-bottom) + 12px);
+     font-family:Fraunces,Georgia,serif;font-style:italic;font-size:.92rem;color:var(--blush);
+     letter-spacing:.02em;text-shadow:0 2px 12px rgba(0,0,0,.85);
+     background:linear-gradient(to top,rgba(20,4,12,.92) 30%,transparent)}
+#sig::before{content:"";display:block;width:52px;height:1px;margin:0 auto 10px;
      background:linear-gradient(90deg,transparent,var(--rose),transparent)}
+#stage{padding-bottom:calc(env(safe-area-inset-bottom) + 96px)}
 
 /* buttons */
 .btn{
@@ -106,6 +111,7 @@ p{margin:0 0 1.05em}
   position:relative;box-shadow:0 20px 50px -30px #000
 }
 .quote::before{content:"\201C";position:absolute;top:-2px;left:14px;font-family:Fraunces,serif;font-size:4rem;color:var(--rose);opacity:.35}
+.quote{transition:opacity .5s}
 .quote q{quotes:none;display:block;font-family:Fraunces,Georgia,serif;font-size:clamp(1.05rem,4.6vw,1.35rem);line-height:1.6;font-style:italic}
 .quote cite{display:block;margin-top:14px;font-style:normal;font-size:.85rem;color:var(--gold);letter-spacing:.04em}
 .quote cite i{color:var(--dim);font-style:normal;display:block;font-size:.78rem;margin-top:2px}
@@ -139,11 +145,13 @@ p{margin:0 0 1.05em}
 /* critters walking */
 .critter{position:absolute;pointer-events:auto;cursor:pointer;user-select:none;padding:6px;
          filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
-#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 22px);transform:translateX(-50%) translateY(150%);
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 78px);transform:translateX(-50%) translateY(150%);
   z-index:70;background:rgba(43,15,29,.97);border:1px solid var(--line);backdrop-filter:blur(14px);
   border-radius:18px;padding:14px 20px;max-width:min(92vw,420px);font-size:.95rem;
-  transition:transform .42s cubic-bezier(.2,.8,.25,1);box-shadow:0 24px 60px -22px #000}
-#toast.show{transform:translateX(-50%) translateY(0)}
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:transform .42s cubic-bezier(.2,.8,.25,1),opacity .3s,visibility .3s;
+  box-shadow:0 24px 60px -22px #000}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible}
 
 /* sound toggle */
 #snd,#rst{position:fixed;top:calc(env(safe-area-inset-top) + 12px);z-index:75;
@@ -168,3 +176,14 @@ p{margin:0 0 1.05em}
   .btn.art-btn{width:100%}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* the storm — every cat and dog at once */
+.storm{position:fixed;inset:0;z-index:55;pointer-events:none;overflow:hidden}
+.storm .s{position:absolute;opacity:0;transform:scale(.2);animation:stormPop 2.6s cubic-bezier(.2,.8,.25,1) forwards}
+@keyframes stormPop{
+  0%{opacity:0;transform:scale(.2) rotate(var(--sr,0deg))}
+  18%{opacity:1;transform:scale(1.12) rotate(var(--sr,0deg))}
+  32%{transform:scale(1) rotate(var(--sr,0deg))}
+  70%{opacity:1;transform:scale(1) rotate(var(--sr,0deg))}
+  100%{opacity:0;transform:scale(.7) translateY(-26px) rotate(var(--sr,0deg))}
+}

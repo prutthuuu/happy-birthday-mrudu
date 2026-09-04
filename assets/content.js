@@ -13,7 +13,7 @@ const CONFIG = {
   song: null                         // TODO: drop an mp3 in assets/ and put "assets/song.mp3"
 };
 
-const NICKNAMES = ["Mrudu","Mrudu Muddu","Mrudu Baby","Mrudu Putta","Dr. Mrudu","Mrudula"];
+const NICKNAMES = ["Mrudu","Mrudu Muddu","Mrudu Baby","Mrudu Papu","Mrudu Putta","Dr. Mrudu","Mrudula"];
 
 /* ---------- literary quotes ---------- */
 /* These fade in through the countdown, one per visit. Real books, real authors. */
@@ -59,6 +59,8 @@ const GAME = {
       options:[
         {label:"Mrudula", reply:"Only when you're in trouble."},
         {label:"Mrudu", reply:"The default. The classic."},
+        {label:"Mrudu Papu", reply:"This one slips out when I'm not thinking."},
+        {label:"Mrudu Baby", reply:"Dangerous one. I only use it when nobody's watching."},
         {label:"Mrudu Putta", reply:"Reserved for when you're being unbearably cute."},
         {label:"everything except Mrudula", reply:"Correct answer. Obviously."}
       ], points:15 },

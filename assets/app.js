@@ -71,7 +71,8 @@ const rstBtn = document.getElementById('rst');
 let armed = null;
 function restart(){
   try{ localStorage.removeItem('mrudu_done'); localStorage.removeItem('mrudu_side'); }catch(e){}
-  clearInterval(clockT); stopCritters(); points = 0;
+  clearInterval(clockT); clearInterval(quoteT); stopCritters(); points = 0;
+  document.querySelectorAll('.storm').forEach(e=>e.remove());
   parts = [];                                   // clear any confetti mid-flight
   document.body.style.transition = 'background 1.2s';
   document.body.style.background = '';          // undo the finale fade
@@ -106,21 +107,81 @@ function stopCritters(){ clearInterval(cTimer); box.innerHTML=''; }
 
 /* ---------- typewriter ---------- */
 function type(el,text,speed=40){
+  const chars=[...text];                       // splits by code point, keeps emoji whole
   return new Promise(res=>{
     el.innerHTML=''; let i=0;
     const cur=$('<span class="cursor"></span>'); el.appendChild(cur);
     const iv=setInterval(()=>{
-      if(i>=text.length){clearInterval(iv);cur.remove();res();return}
-      cur.insertAdjacentText('beforebegin',text[i++]);
+      if(i>=chars.length){
+        clearInterval(iv); cur.remove();
+        el.normalize();                        // merge the per-char text nodes back into one
+        wrapEmojiIn(el); res(); return;
+      }
+      cur.insertAdjacentText('beforebegin',chars[i++]);
       if(i%3===0) S('tap');
     },speed);
   });
 }
+if(CONFIG.signature) document.getElementById('sig').innerHTML = CONFIG.signature;
+
+/* ---------- rotating literary quotes ---------- */
+let quoteT=null, quoteIdx=0;
+const quoteHTML = q => `<q>${q.t}</q><cite>&mdash; ${q.a}${q.w?`<i>${q.w}</i>`:''}</cite>`;
+function mountQuote(el, start=0){
+  if(!el) return;
+  quoteIdx = ((start % QUOTES.length) + QUOTES.length) % QUOTES.length;
+  el.innerHTML = quoteHTML(QUOTES[quoteIdx]);
+  clearInterval(quoteT);
+  quoteT = setInterval(()=>{
+    el.style.opacity = '0';
+    setTimeout(()=>{
+      quoteIdx = (quoteIdx+1) % QUOTES.length;
+      el.innerHTML = quoteHTML(QUOTES[quoteIdx]);
+      el.style.opacity = '1';
+    }, 520);
+  }, 7500);
+}
+
+/* ---------- the storm: every cat and dog at once ---------- */
+function critterStorm(n=36){
+  const box=$('<div class="storm"></div>'); document.body.appendChild(box);
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      const isCat = Math.random()<.5, size = 46+Math.random()*56;
+      const el=$(`<div class="s">${isCat?Art.cat('#ffc2d4',size):Art.dog('#f6c98d',size)}</div>`);
+      el.style.left = (Math.random()*86)+'vw';
+      el.style.top  = (Math.random()*80)+'vh';
+      el.style.setProperty('--sr',(Math.random()*44-22)+'deg');
+      box.appendChild(el);
+      if(i%5===0) S(isCat?'meow':'woof');
+    }, i*65);
+  }
+  setTimeout(()=>box.remove(), n*65+3200);
+}
+
+/* gradient-clipped headings turn emoji into blank shapes — opt them out */
+const EMO_RE  = /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/gu;
+const EMO_HAS = /\p{Extended_Pictographic}/u;
+function wrapEmojiIn(el){
+  if(!el) return;
+  el.normalize();
+  [...el.childNodes].forEach(n=>{
+    if(n.nodeType!==3 || !EMO_HAS.test(n.nodeValue)) return;
+    const frag=document.createDocumentFragment();
+    n.nodeValue.split(EMO_RE).forEach((part,i)=>{
+      if(!part) return;
+      if(i%2===1){ const sp=document.createElement('span'); sp.className='emo'; sp.textContent=part; frag.appendChild(sp); }
+      else frag.appendChild(document.createTextNode(part));
+    });
+    n.replaceWith(frag);
+  });
+}
+const fixEmoji = root => root.querySelectorAll('h1,h2').forEach(wrapEmojiIn);
+
 const show = html => {
-  stage.innerHTML='';
+  stage.innerHTML=''; clearInterval(quoteT); quoteT=null;
   const s=$(`<section class="scene">${html}</section>`);
-  if(CONFIG.signature) s.appendChild($(`<div class="sig">${CONFIG.signature}</div>`));
-  stage.appendChild(s); return s;
+  stage.appendChild(s); fixEmoji(s); return s;
 };
 const nextBtn = (s,fn)=>{ const b=s.querySelector('#n'); b.style.transition='opacity .7s'; b.style.opacity='1'; b.onclick=()=>{S('whoosh');fn()}; };
 
@@ -224,6 +285,7 @@ function sceneBox(){
     <div class="stack"><button class="btn primary" id="o">${g.button}</button></div>`);
   s.querySelector('#o').onclick=()=>{
     S('success'); burst(200,.4); setTimeout(()=>burst(130,.5),380); setTimeout(()=>burst(100,.6),760);
+    critterStorm(36);
     const t=show(`${Art.ecg(340)}<p class="big serif" id="a"></p>
       <div class="stack"><button class="btn primary" id="n" style="opacity:0">${g.next}</button></div>`);
     (async()=>{ await type(t.querySelector('#a'),g.after,28);
@@ -234,7 +296,6 @@ function sceneBox(){
 /* ============================================================ PHASE 2 */
 function sceneCountdown(justUnlocked){
   const d=daysLeft(), msg=COUNTDOWN_MESSAGES[d]||COUNTDOWN_FALLBACK;
-  const q=QUOTES[(new Date().getDate()+d)%QUOTES.length];
   const s=show(`
     ${justUnlocked?'<div class="kicker">🔓 you unlocked the next part</div>'
                   :`<div class="kicker">for <span class="nick">${CONFIG.name}</span></div>`}
@@ -247,9 +308,10 @@ function sceneCountdown(justUnlocked){
       <div class="unit"><b id="ss">--</b><span>sec</span></div>
     </div>
     <div class="daily serif">${msg}</div>
-    <div class="quote"><q>${q.t}</q><cite>— ${q.a}${q.w?`<i>${q.w}</i>`:''}</cite></div>
+    <div class="quote" id="qc"></div>
     <div class="stack"><button class="btn" id="scan">🩺 ${MEDICAL_REPORT.button}</button></div>
     <p class="dim" style="margin-top:22px;font-size:.82rem">come back tomorrow. it changes.</p>`);
+  mountQuote(s.querySelector('#qc'), new Date().getDate()+d);
   const pad=n=>String(n).padStart(2,'0');
   const upd=()=>{ let ms=msLeft(); if(ms<0){location.reload();return}
     const dv=Math.floor(ms/86400000); ms-=dv*86400000;
@@ -343,11 +405,11 @@ function sceneCake(){
 function sceneWish(i){
   const B=BIRTHDAY_MODE;
   if(i>=B.wishes.length) return sceneFinale();
-  const q=QUOTES[i%QUOTES.length];
   const s=show(`<div class="kicker">wish ${String(i+1).padStart(2,'0')} / ${String(B.wishes.length).padStart(2,'0')}</div>
     <p class="typed serif" id="w"></p>
-    ${i%3===2?`<div class="quote"><q>${q.t}</q><cite>— ${q.a}${q.w?`<i>${q.w}</i>`:''}</cite></div>`:''}
+    ${i%3===2?`<div class="quote" id="qc"></div>`:''}
     <div class="stack"><button class="btn primary" id="n" style="opacity:0">${i===B.wishes.length-1?'…one more thing →':B.wishButton}</button></div>`);
+  mountQuote(s.querySelector('#qc'), i);
   (async()=>{ await type(s.querySelector('#w'),B.wishes[i],25); S('sparkle'); burst(24,.55);
     nextBtn(s,()=>sceneWish(i+1)); })();
 }
@@ -362,7 +424,7 @@ function sceneFinale(){
   const l=s.querySelector('#l');
   (async()=>{
     for(const line of B.finale){ await type(l,line,55); await new Promise(r=>setTimeout(r,1600)); }
-    l.innerHTML=''; l.appendChild($(`<h1 class="serif">${B.finalLine}</h1>`));
+    l.innerHTML=''; const fh=$(`<h1 class="serif">${B.finalLine}</h1>`); l.appendChild(fh); wrapEmojiIn(fh);
     l.appendChild($(`<div>${Art.heart('#ff6f9c',70)}</div>`));
     Sound.birthdaySong(); S('success');
     burst(260,.35); setTimeout(()=>burst(190,.5),520); setTimeout(()=>burst(150,.65),1040);
@@ -379,7 +441,8 @@ function sceneFinale(){
 /* preview overrides for testing:  ?stage=game | countdown | birthday | cake | wishes | finale */
 const forced = new URLSearchParams(location.search).get('stage');
 const STAGES = { game:()=>sceneGate(), countdown:()=>sceneCountdown(false), birthday:()=>sceneBirthday(),
-                 cake:()=>sceneCake(), wishes:()=>sceneWish(0), finale:()=>sceneFinale(), report:()=>sceneReport() };
+                 cake:()=>sceneCake(), wishes:()=>sceneWish(0), finale:()=>sceneFinale(), report:()=>sceneReport(),
+                 storm:()=>{ sceneCountdown(false); critterStorm(36); } };
 if(forced && STAGES[forced]) STAGES[forced]();
 else {
   const p=phase();
