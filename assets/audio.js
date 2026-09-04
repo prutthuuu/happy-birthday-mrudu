@@ -9,6 +9,19 @@ const Sound = (() => {
     if(started) return; started=true;
     ac = new (window.AudioContext||window.webkitAudioContext)();
     master = ac.createGain(); master.gain.value = on?0.9:0; master.connect(ac.destination);
+    // iOS: route through the "playback" category so the ringer/silent switch doesn't mute us
+    try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}
+    unlock();
+  }
+  // iOS/Safari only truly unlocks after a real buffer has played inside a gesture
+  function unlock(){
+    if(!ac) return;
+    try{
+      const b = ac.createBuffer(1,1,22050);
+      const src = ac.createBufferSource();
+      src.buffer = b; src.connect(ac.destination); src.start(0);
+    }catch(e){}
+    if(ac.state !== 'running') ac.resume().catch(()=>{});
   }
   const N = n => 440*Math.pow(2,(n-69)/12);           // midi -> hz
   const NAMES = {C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
@@ -79,7 +92,10 @@ const Sound = (() => {
               ['G4',.5],['G4',.25],['G5',.75],['E5',.75],['C5',.75],['B4',.75],['A4',1.5],
               ['F5',.5],['F5',.25],['E5',.75],['C5',.75],['D5',.75],['C5',1.75]];
   function birthdaySong(){
-    if(!ac) return; let t=0; const bpm=.42;
+    boot();
+    if(!ac) return;
+    if(ac.state !== 'running'){ ac.resume().then(birthdaySong).catch(()=>{}); return; }
+    let t=0; const bpm=.42;
     HB.forEach(([n,d])=>{
       tone({freq:note(n),dur:d*bpm*.95,type:'triangle',vol:.19,when:t,at:.02});
       tone({freq:note(n)/2,dur:d*bpm*.95,type:'sine',vol:.08,when:t,at:.02});
@@ -88,14 +104,33 @@ const Sound = (() => {
     return t*1000;
   }
 
-  document.addEventListener('pointerdown', ()=>{
-    boot(); if(ac&&ac.state==='suspended') ac.resume(); if(on) pad(true);
-  }, {once:false});
+  function kick(){
+    boot(); unlock();
+    if(ac && ac.state !== 'running') ac.resume().then(()=>{ if(on) pad(true); }).catch(()=>{});
+    else if(on) pad(true);
+  }
+  ['pointerdown','touchend','click','keydown'].forEach(ev =>
+    document.addEventListener(ev, kick, {passive:true}));
+  // coming back to the tab suspends the context on mobile
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden && ac && ac.state !== 'running') ac.resume().catch(()=>{});
+  });
 
   return {
-    boot, sfx, pad, birthdaySong,
+    boot, sfx, pad, birthdaySong, unlock,
     get enabled(){ return on; },
-    toggle(){ on=!on; save('sound',on); if(master) master.gain.linearRampToValueAtTime(on?0.9:0, ac.currentTime+.2); return on; },
-    play(k){ if(!on) return; boot(); if(ac&&ac.state==='suspended')ac.resume(); sfx[k] && sfx[k](); }
+    get state(){ return ac ? ac.state : 'none'; },
+    toggle(){
+      on=!on; save('sound',on);
+      boot(); unlock();
+      if(master && ac) master.gain.linearRampToValueAtTime(on?0.9:0, ac.currentTime+.2);
+      return on;
+    },
+    play(k){
+      if(!on || !sfx[k]) return;
+      boot();
+      if(ac && ac.state !== 'running') ac.resume().then(()=>sfx[k]()).catch(()=>{});
+      else sfx[k]();
+    }
   };
 })();

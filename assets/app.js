@@ -64,7 +64,22 @@ function toast(m){ toastEl.textContent=m; toastEl.classList.add('show'); clearTi
 const sndBtn = document.getElementById('snd');
 const paintSnd = ()=>{ sndBtn.textContent = Sound.enabled?'🔊':'🔇'; sndBtn.classList.toggle('off',!Sound.enabled); };
 paintSnd();
-sndBtn.onclick = ()=>{ const on=Sound.toggle(); paintSnd(); if(on){ Sound.pad(true); S('chime'); } else Sound.pad(false); };
+sndBtn.onclick = ()=>{
+  const on=Sound.toggle(); paintSnd();
+  if(on){ Sound.pad(true); S('chime');
+    setTimeout(()=>{ if(Sound.state!=='running') toast('your browser is blocking sound — tap anywhere once more'); }, 500);
+  } else Sound.pad(false);
+};
+
+/* phones on silent mute Web Audio — say so once, on her first tap */
+if(!load('sndhint',false)){
+  const hint=()=>{
+    save('sndhint',true);
+    setTimeout(()=>toast('🔊 there\'s sound — flip your phone off silent to hear it'), 1200);
+    document.removeEventListener('pointerdown',hint);
+  };
+  document.addEventListener('pointerdown',hint,{passive:true});
+}
 
 /* ---------- start over ---------- */
 const rstBtn = document.getElementById('rst');
